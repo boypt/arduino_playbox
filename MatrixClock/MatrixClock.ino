@@ -12,16 +12,10 @@
 
 #define TIME_REQUEST  7     // ASCII bell character requests a time sync message 
 
-#define dht_dpin A0 //no ; here. Set equal to channel sensor is on
-
 #define DHTPIN 2
 #define DHTTYPE DHT11
 DHT dht(DHTPIN, DHTTYPE);
-
 RTC_DS1307 rtc;
-
-
-//
 LedControl lc = LedControl(12, 11, 10, 2);
 
 
@@ -45,7 +39,7 @@ void setup()  {
   rtc.begin();
   dht.begin();
 
-//------------------
+  //------------------
   if (! rtc.begin()) {
     Serial.println("Couldn't find RTC");
     while (1);
@@ -65,81 +59,79 @@ void setup()  {
     we have to do a wakeup call
   */
   lc.shutdown(0, false);
+  lc.shutdown(1, false);
+
   /* Set the brightness to a medium values */
   lc.setIntensity(0, 1);
+  lc.setIntensity(1, 1);
+
   /* and clear the display */
   lc.clearDisplay(0);
-
-  lc.shutdown(1, false);
-  lc.setIntensity(1, 1);
   lc.clearDisplay(1);
 
 }
 
 void loop() {
 
-/*
-  if (Serial.available() > 1) { // wait for at least two characters
-    char c = Serial.read();
-    if ( c == TIME_HEADER) {
-      processSyncMessage();
+  /*
+    if (Serial.available() > 1) { // wait for at least two characters
+      char c = Serial.read();
+      if ( c == TIME_HEADER) {
+        processSyncMessage();
+      }
+      else if ( c == FORMAT_HEADER) {
+        processFormatMessage();
+      }
     }
-    else if ( c == FORMAT_HEADER) {
-      processFormatMessage();
+    if (timeStatus() != timeNotSet) {
+      digitalClockDisplay();
     }
-  }
-  if (timeStatus() != timeNotSet) {
-    digitalClockDisplay();
-  }
   */
-    DateTime now = rtc.now();
-    
-    Serial.print(now.year(), DEC);
-    Serial.print('/');
-    Serial.print(now.month(), DEC);
-    Serial.print('/');
-    Serial.print(now.day(), DEC);
+  DateTime now = rtc.now();
 
-    Serial.print(now.hour(), DEC);
-    Serial.print(':');
-    Serial.print(now.minute(), DEC);
-    Serial.print(':');
-    Serial.print(now.second(), DEC);
-    Serial.println();
-    
-    Serial.print(" since midnight 1/1/1970 = ");
-    Serial.print(now.unixtime());
-    Serial.print("s = ");
-    Serial.print(now.unixtime() / 86400L);
-    Serial.println("d");
+  Serial.print(now.year(), DEC);
+  Serial.print('/');
+  Serial.print(now.month(), DEC);
+  Serial.print('/');
+  Serial.print(now.day(), DEC);
+
+  Serial.print(now.hour(), DEC);
+  Serial.print(':');
+  Serial.print(now.minute(), DEC);
+  Serial.print(':');
+  Serial.print(now.second(), DEC);
+  Serial.println();
+
+  Serial.print(" since midnight 1/1/1970 = ");
+  Serial.print(now.unixtime());
+  Serial.print("s = ");
+  Serial.print(now.unixtime() / 86400L);
+  Serial.println("d");
 
   writeNumberOnMatrix(1, now.hour(), 1, - 1);
   writeNumberOnMatrix(0, now.minute(), 0, 0);
   //Serial.println(num, DEC);
 
 
-float h = dht.readHumidity();
-float t = dht.readTemperature();
-if (isnan(t) || isnan(h)) {
-  Serial.println("Failed to read from DHT");
+  float h = dht.readHumidity();
+  float t = dht.readTemperature();
+  if (isnan(t) || isnan(h)) {
+    Serial.println("Failed to read from DHT");
+  }  else {
+    Serial.print("Temp=");
+    Serial.print(t);
+    Serial.println(" *C");
+    Serial.print("Humidity=");
+    Serial.print(h);
+    Serial.println("% ");
   }
-else {
-  Serial.println("Temp=");
-  Serial.println(t);
-  Serial.println(" *C");
-  Serial.println("Humidity=");
-  Serial.println(h);
-  Serial.println("% ");
- }
 
-
-        
   delay(1000);
 }
 
 
 /*
-void processSyncMessage() {
+  void processSyncMessage() {
   unsigned long pctime;
   const unsigned long DEFAULT_TIME = 1357041600; // Jan 1 2013 - paul, perhaps we define in time.h?
 
@@ -147,7 +139,7 @@ void processSyncMessage() {
   if ( pctime >= DEFAULT_TIME) { // check the integer is a valid time (greater than Jan 1 2013)
     setTime(pctime); // Sync Arduino clock to the time received on the serial port
   }
-}
+  }
 
 */
 
