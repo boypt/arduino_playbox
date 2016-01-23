@@ -4,21 +4,20 @@
 #include <LedControl.h>
 #include <RTClib.h>
 
-
-// single character message tags
-#define TIME_HEADER   'T'   // Header tag for serial time sync message
-#define FORMAT_HEADER 'F'   // Header tag indicating a date format message
-#define FORMAT_SHORT  's'   // short month and day strings
-#define FORMAT_LONG   'l'   // (lower case l) long month and day strings
+//
+//// single character message tags
+//#define TIME_HEADER   'T'   // Header tag for serial time sync message
+//#define FORMAT_HEADER 'F'   // Header tag indicating a date format message
+//#define FORMAT_SHORT  's'   // short month and day strings
+//#define FORMAT_LONG   'l'   // (lower case l) long month and day strings
 
 #define TIME_REQUEST  7     // ASCII bell character requests a time sync message 
 
-#define DHTPIN 2
-#define DHTTYPE DHT11
-DHT dht(DHTPIN, DHTTYPE);
-RTC_DS1307 rtc;
-LedControl lc = LedControl(12, 11, 10, 2);
-LiquidCrystal lcd(5, 4, 9, 8, 7, 6);
+DHT dht(2, DHT11);  // DHT PIN2 DS -> 2
+RTC_DS1307 rtc;     // SDA-> A4, SCL->A5
+
+LedControl lc = LedControl(12, 11, 10, 2); // DIN->12, CLK->11, CS->10
+LiquidCrystal lcd(5, 4, 9, 8, 7, 6); //RS->5, E->4, D4/D5/D6/D7->9/8/7/6
 
 
 
@@ -93,21 +92,7 @@ void loop() {
   */
   DateTime now = rtc.now();
 
-  Serial.print(now.year(), DEC);
-  Serial.print('/');
-  Serial.print(now.month(), DEC);
-  Serial.print('/');
-  Serial.print(now.day(), DEC);
-
-  Serial.print(now.hour(), DEC);
-  Serial.print(':');
-  Serial.print(now.minute(), DEC);
-  Serial.print(':');
-  Serial.print(now.second(), DEC);
-  Serial.println();
-
   lcd.setCursor(0, 0);
-
   lcd.print(now.month(), DEC);
   lcd.print('-');
   lcd.print(now.day(), DEC);
