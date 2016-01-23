@@ -1,3 +1,4 @@
+#include <LiquidCrystal.h>
 #include <DHT.h>
 #include <Wire.h>
 #include <LedControl.h>
@@ -17,6 +18,8 @@
 DHT dht(DHTPIN, DHTTYPE);
 RTC_DS1307 rtc;
 LedControl lc = LedControl(12, 11, 10, 2);
+LiquidCrystal lcd(5, 4, 9, 8, 7, 6);
+
 
 
 byte font[10][8] = {
@@ -38,6 +41,7 @@ void setup()  {
   while (!Serial) ; // Needed for Leonardo only
   rtc.begin();
   dht.begin();
+  lcd.begin(16, 2);
 
   //------------------
   if (! rtc.begin()) {
@@ -102,19 +106,26 @@ void loop() {
   Serial.print(now.second(), DEC);
   Serial.println();
 
-  Serial.print(" since midnight 1/1/1970 = ");
-  Serial.print(now.unixtime());
-  Serial.print("s = ");
-  Serial.print(now.unixtime() / 86400L);
-  Serial.println("d");
+  lcd.setCursor(0, 0);
+
+  lcd.print(now.month(), DEC);
+  lcd.print('-');
+  lcd.print(now.day(), DEC);
+  lcd.print(' ');
+  lcd.print(now.hour(), DEC);
+  lcd.print(':');
+  lcd.print(now.minute(), DEC);
+  lcd.print(':');
+  lcd.print(now.second(), DEC);
+
 
   writeNumberOnMatrix(1, now.hour(), 1, - 1);
   writeNumberOnMatrix(0, now.minute(), 0, 0);
   //Serial.println(num, DEC);
 
 
-  float h = dht.readHumidity();
-  float t = dht.readTemperature();
+  int h = dht.readHumidity();
+  int t = dht.readTemperature();
   if (isnan(t) || isnan(h)) {
     Serial.println("Failed to read from DHT");
   }  else {
@@ -124,9 +135,16 @@ void loop() {
     Serial.print("Humidity=");
     Serial.print(h);
     Serial.println("% ");
+
+    lcd.setCursor(0, 1);
+    lcd.print("Tmp");
+    lcd.print(t);
+    lcd.print("*C Hum");
+    lcd.print(h);
+    lcd.print("%");
   }
 
-  delay(1000);
+  delay(500);
 }
 
 
@@ -148,25 +166,24 @@ void writeNumberOnMatrix(byte addr, byte number, int offset_x, int offset_y) {
 
   byte tens_digit;
   byte unit_digit;
-
-  if (number > 99 ) {
-    number = number - 99;
-  }
+  byte r;
 
   if (number > 9) {
     unit_digit = number % 10;
     tens_digit = (number - unit_digit) / 10;
+    for (char i = 0; i < 8; i++ ) {
+      r = (byte)font[tens_digit][i] << 4;
+      r ^= font[unit_digit][i];
+      lc.setRow(addr, i + offset_y, r << offset_x);
+    }
   } else {
     unit_digit = number;
-    tens_digit = 0;
-  }
-
-  byte r;
-  for (char i = 0; i < 8; i++ ) {
-    r = (byte)font[tens_digit][i] << 4;
-    r ^= font[unit_digit][i];
-    lc.setRow(addr, i + offset_y, r << offset_x);
+    for (char i = 0; i < 8; i++ ) {
+      r = (byte)font[unit_digit][i];
+      lc.setRow(addr, i + offset_y, r << offset_x);
+    }
   }
 }
+
 
 
