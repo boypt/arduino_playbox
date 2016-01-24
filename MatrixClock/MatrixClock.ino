@@ -1,5 +1,6 @@
 #include <LiquidCrystal.h>
-#include <DHT.h>
+
+#include "dht.h"
 #include <Wire.h>
 #include <LedControl.h>
 #include <RTClib.h>
@@ -11,9 +12,11 @@
 //#define FORMAT_SHORT  's'   // short month and day strings
 //#define FORMAT_LONG   'l'   // (lower case l) long month and day strings
 
-#define TIME_REQUEST  7     // ASCII bell character requests a time sync message 
+#define TIME_REQUEST  7     // ASCII bell character requests a time sync message
 
-DHT dht(2, DHT11);  // DHT PIN2 DS -> 2
+#define DHTPIN 2
+//DHT dht(2, DHT11);  // DHT PIN2 DS -> 2
+dht DHT;
 RTC_DS1307 rtc;     // SDA-> A4, SCL->A5
 
 LedControl lc = LedControl(12, 11, 10, 2); // DIN->12, CLK->11, CS->10
@@ -39,7 +42,7 @@ void setup()  {
   Serial.begin(9600);
   while (!Serial) ; // Needed for Leonardo only
   rtc.begin();
-  dht.begin();
+  //  dht.begin();
   lcd.begin(16, 2);
 
   //------------------
@@ -74,6 +77,15 @@ void setup()  {
 
 }
 
+String twoDigit(int8_t val) {
+  String z = String(0);
+  if(val < 10) {
+    return z+String(val,DEC);
+  } else if (val > 9) {
+    return String(val,DEC);
+  }
+}
+
 void loop() {
 
   /*
@@ -91,17 +103,11 @@ void loop() {
     }
   */
   DateTime now = rtc.now();
-
-  lcd.setCursor(0, 0);
-  lcd.print(now.month(), DEC);
-  lcd.print('-');
-  lcd.print(now.day(), DEC);
-  lcd.print(' ');
-  lcd.print(now.hour(), DEC);
-  lcd.print(':');
-  lcd.print(now.minute(), DEC);
-  lcd.print(':');
-  lcd.print(now.second(), DEC);
+  String datatime;
+  
+  datatime = twoDigit(now.month()) + "/" + twoDigit(now.day()) + " " + twoDigit(now.hour()) + ":" + twoDigit(now.minute())+ ":" + twoDigit(now.second());
+  lcd.setCursor(0, 0);  
+  lcd.print(datatime);
 
 
   writeNumberOnMatrix(1, now.hour(), 1, - 1);
@@ -109,26 +115,15 @@ void loop() {
   //Serial.println(num, DEC);
 
 
-  int h = dht.readHumidity();
-  int t = dht.readTemperature();
-  if (isnan(t) || isnan(h)) {
-    Serial.println("Failed to read from DHT");
-  }  else {
-    Serial.print("Temp=");
-    Serial.print(t);
-    Serial.println(" *C");
-    Serial.print("Humidity=");
-    Serial.print(h);
-    Serial.println("% ");
+  String temphum;
+  DHT.read11(DHTPIN);
+  int8_t h = DHT.humidity;
+  int8_t t = DHT.temperature >> 1;
 
-    lcd.setCursor(0, 1);
-    lcd.print("Tmp");
-    lcd.print(t);
-    lcd.print("*C Hum");
-    lcd.print(h);
-    lcd.print("%");
-  }
-
+  
+  temphum = "TMP "+twoDigit(t) + "C  HUM " + twoDigit(h) + "%";
+  lcd.setCursor(0, 1);
+  lcd.print(temphum);
   delay(500);
 }
 
@@ -151,24 +146,23 @@ void writeNumberOnMatrix(byte addr, byte number, int offset_x, int offset_y) {
 
   byte tens_digit;
   byte unit_digit;
-  byte r;
+
+  if (number > 99 ) {
+    number = number - 99;
+  }
 
   if (number > 9) {
     unit_digit = number % 10;
     tens_digit = (number - unit_digit) / 10;
-    for (char i = 0; i < 8; i++ ) {
-      r = (byte)font[tens_digit][i] << 4;
-      r ^= font[unit_digit][i];
-      lc.setRow(addr, i + offset_y, r << offset_x);
-    }
   } else {
     unit_digit = number;
-    for (char i = 0; i < 8; i++ ) {
-      r = (byte)font[unit_digit][i];
-      lc.setRow(addr, i + offset_y, r << offset_x);
-    }
+    tens_digit = 0;
+  }
+
+  byte r;
+  for (char i = 0; i < 8; i++ ) {
+    r = (byte)font[tens_digit][i] << 4;
+    r ^= font[unit_digit][i];
+    lc.setRow(addr, i + offset_y, r << offset_x);
   }
 }
-
-
-
