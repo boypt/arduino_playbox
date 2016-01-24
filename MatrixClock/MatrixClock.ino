@@ -1,18 +1,11 @@
 #include <LiquidCrystal.h>
-
+#include "TaskScheduler.h"
 #include "dht.h"
 #include <Wire.h>
 #include <LedControl.h>
 #include <RTClib.h>
 
-//
-//// single character message tags
-//#define TIME_HEADER   'T'   // Header tag for serial time sync message
-//#define FORMAT_HEADER 'F'   // Header tag indicating a date format message
-//#define FORMAT_SHORT  's'   // short month and day strings
-//#define FORMAT_LONG   'l'   // (lower case l) long month and day strings
-
-#define TIME_REQUEST  7     // ASCII bell character requests a time sync message
+#define TIME_HEADER  "T"   // Header tag for serial time sync message
 
 #define DHTPIN 2
 //DHT dht(2, DHT11);  // DHT PIN2 DS -> 2
@@ -40,9 +33,8 @@ byte font[10][8] = {
 
 void setup()  {
   Serial.begin(9600);
-  while (!Serial) ; // Needed for Leonardo only
+
   rtc.begin();
-  //  dht.begin();
   lcd.begin(16, 2);
 
   //------------------
@@ -75,71 +67,88 @@ void setup()  {
   lc.clearDisplay(0);
   lc.clearDisplay(1);
 
+
+  Sch.init();
+
+  Sch.addTask(readTime, 0, 250, 1);
+  Sch.addTask(writeTime, 0, 500, 1);
+
+  Sch.addTask(readDHT, 0, 5000, 1);
+  Sch.addTask(writeTH, 1000, 5000, 1);
+  Sch.addTask(blinkLED, 100, 1000, 1);
+  Sch.addTask(readSerial, 800, 1000, 1);
+  Sch.start();
+
 }
 
 String twoDigit(int8_t val) {
   String z = String(0);
-  if(val < 10) {
-    return z+String(val,DEC);
+  if (val < 10) {
+    return z + String(val, DEC);
   } else if (val > 9) {
-    return String(val,DEC);
+    return String(val, DEC);
   }
 }
 
-void loop() {
+void loop()
+{
+  Sch.dispatchTasks();
+}
 
-  /*
-    if (Serial.available() > 1) { // wait for at least two characters
-      char c = Serial.read();
-      if ( c == TIME_HEADER) {
-        processSyncMessage();
-      }
-      else if ( c == FORMAT_HEADER) {
-        processFormatMessage();
-      }
-    }
-    if (timeStatus() != timeNotSet) {
-      digitalClockDisplay();
-    }
-  */
-  DateTime now = rtc.now();
-  String datatime;
-  
-  datatime = twoDigit(now.month()) + "/" + twoDigit(now.day()) + " " + twoDigit(now.hour()) + ":" + twoDigit(now.minute())+ ":" + twoDigit(now.second());
-  lcd.setCursor(0, 0);  
+DateTime now;
+int8_t h, t;
+
+void readTime() {
+  now = rtc.now();
+}
+
+void readDHT() {
+  DHT.read11(DHTPIN);
+  h = DHT.humidity;
+  t = DHT.temperature >> 1;
+}
+
+void writeTime() {
+  String datatime = " " + twoDigit(now.month()) + "/" + twoDigit(now.day()) + " " + twoDigit(now.hour()) + ":" + twoDigit(now.minute()) + ":" + twoDigit(now.second());
+  lcd.setCursor(0, 0);
   lcd.print(datatime);
-
-
   writeNumberOnMatrix(1, now.hour(), 1, - 1);
   writeNumberOnMatrix(0, now.minute(), 0, 0);
-  //Serial.println(num, DEC);
+}
 
-
+void writeTH() {
   String temphum;
-  DHT.read11(DHTPIN);
-  int8_t h = DHT.humidity;
-  int8_t t = DHT.temperature >> 1;
-
-  
-  temphum = "TMP "+twoDigit(t) + "C  HUM " + twoDigit(h) + "%";
+  temphum = "TMP " + String(t, DEC) + "\xDF" + (t>9?"C HUM ":"C  HUM ") + String(h, DEC) + "%";
   lcd.setCursor(0, 1);
   lcd.print(temphum);
-  delay(500);
+}
+
+boolean blink = false;
+void blinkLED() {
+  lc.setLed(1, 7, 7, blink);
+  lc.setLed(0, 0, 0, !blink);
+  blink = !blink;
+}
+
+void readSerial() {
+  if (Serial.available()) {
+    processSyncMessage();
+  }
 }
 
 
-/*
-  void processSyncMessage() {
-  unsigned long pctime;
-  const unsigned long DEFAULT_TIME = 1357041600; // Jan 1 2013 - paul, perhaps we define in time.h?
-
-  pctime = Serial.parseInt();
-  if ( pctime >= DEFAULT_TIME) { // check the integer is a valid time (greater than Jan 1 2013)
-    setTime(pctime); // Sync Arduino clock to the time received on the serial port
+void processSyncMessage() {
+  uint32_t pctime;
+  const uint32_t DEFAULT_TIME = 1357041600; // Jan 1 2013 - paul, perhaps we define in time.h?
+  if (Serial.find((char*)"T")) {
+    pctime = Serial.parseInt();
+    if ( pctime >= DEFAULT_TIME) { // check the integer is a valid time (greater than Jan 1 2013)
+      DateTime dt(pctime+(3600*8)); //+8 timezone
+      rtc.adjust(dt);
+    }
   }
-  }
+}
 
-*/
 
 
 void writeNumberOnMatrix(byte addr, byte number, int offset_x, int offset_y) {
@@ -160,8 +169,8 @@ void writeNumberOnMatrix(byte addr, byte number, int offset_x, int offset_y) {
   }
 
   byte r;
-  for (char i = 0; i < 8; i++ ) {
-    r = (byte)font[tens_digit][i] << 4;
+  for (byte i = 0; i < 8; i++ ) {
+    r = font[tens_digit][i] << 4;
     r ^= font[unit_digit][i];
     lc.setRow(addr, i + offset_y, r << offset_x);
   }
